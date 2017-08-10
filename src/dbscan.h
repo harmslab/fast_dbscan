@@ -5,4 +5,5 @@ int dbscan(long **all_points,
            int num_dimensions,
            int alphabet_size,
            int epsilon_cutoff,
-           int min_neighbors);
+           int min_neighbors,
+           int dist_function);

@@ -12,6 +12,9 @@ typedef struct {
 
     long **dist_matrix;
 
+    int (*dist_function)(long *, long *, void *);
+    int **dl_d, *dl_da;
+
 } config;
 
 /*
@@ -60,12 +63,14 @@ void loadData(char file_name[],config *c) {
 } */
 
 
-int calc_distance(int *v1, int *v2, config *c){
+int simple_distance(long *v1, long *v2, void *tmp_c){
 
     /* Calculate the distance between two vectors given a distance matrix. */
 
     int i;
     int d;
+    config *c;
+    c = (config *)(tmp_c);
 
     d = 0;
     for (i = 0; i < c->num_dimensions; i++){
@@ -73,6 +78,68 @@ int calc_distance(int *v1, int *v2, config *c){
     }
 
     return d;
+}
+
+int dl_distance(long *v1, long *v2, void *c_tmp){
+
+    int i, j, k, max_dist;
+    int db, len, minimum, insertion, deletion, transpose, cost; 
+    config *c; 
+
+    c = (config *)(c_tmp);
+
+    max_dist = c->num_dimensions + c->num_dimensions;
+
+    /* Populate d */
+    c->dl_d[0][0] = max_dist;
+    for (i = 0; i < c->num_dimensions + 1; i++){
+        c->dl_d[i+1][  0] = max_dist;
+        c->dl_d[i+1][  1] = i;  
+    
+        c->dl_d[  0][i+1] = max_dist;
+        c->dl_d[  1][i+1] = i;  
+    }   
+
+    /* Calculate required moves */
+    for (i = 1; i < c->num_dimensions + 1; i++){
+        db = 0;
+        for (j = 1; j < c->num_dimensions + 1; j++){
+
+            k = c->dl_da[v2[j-1]];
+            len = db;
+            if (v1[i-1] == v2[j-1]){
+                cost = 0;
+                db = j;
+            } else {
+                cost = 1;
+            }
+
+            minimum   = c->dl_d[i  ][j  ] + cost;
+            insertion = c->dl_d[i+1][j  ] + 1;
+            deletion  = c->dl_d[i  ][j+1] + 1;
+            transpose = c->dl_d[k  ][len] + (i - k - 1) + 1 + (j - len - 1);
+
+            if (insertion < minimum){
+                minimum = insertion;
+            }
+
+            if (deletion < minimum){
+                minimum = deletion;
+            }
+
+            if (transpose < minimum){
+                minimum = transpose;
+            }
+
+            c->dl_d[i+1][j+1] = minimum;
+
+        }
+        c->dl_da[v1[i-1]] = i;
+    }
+
+    /* Return final distance */
+    return c->dl_d[c->num_dimensions+1][c->num_dimensions+1];
+
 }
 
 int query_region(int point, int *tmp_neighbors, config *c) {
@@ -86,7 +153,7 @@ int query_region(int point, int *tmp_neighbors, config *c) {
     for (i = 0; i < c->num_points; i++) {
 
         if (i != point) {
-            if (calc_distance(c->all_points[point],c->all_points[i],c) <= c->epsilon_cutoff) {
+            if (c->dist_function(c->all_points[point],c->all_points[i],(void *)c) <= c->epsilon_cutoff) {
                 tmp_neighbors[neighbor_counter] = i;
                 neighbor_counter++;
             }
@@ -182,12 +249,6 @@ int local_dbscan(config *c) {
         }
     }
 
-    /*
-    for (i = 0; i < c->num_points; i++){
-        printf("%d %d\n",i,c->cluster_assignments[i]);
-    }
-    */
-
     /* Clean up */
     free(point_neighbors); point_neighbors = NULL;
     free(neighbor_neighbors); neighbor_neighbors = NULL;
@@ -202,7 +263,8 @@ int dbscan(long **all_points,
            int num_dimensions,
            int alphabet_size,
            int epsilon_cutoff,
-           int min_neighbors){
+           int min_neighbors,
+           int dist_function){
 
     int i, status;
     config c;
@@ -223,12 +285,44 @@ int dbscan(long **all_points,
     for (i = 0; i < c.num_points; i++){
         c.cluster_assignments[i] = -1;
     } 
+   
+    if (dist_function == 0){
+        c.dist_function = &simple_distance;
+    } else if (dist_function == 1){
+        c.dist_function = &dl_distance;
     
+        /* Create array da */
+        c.dl_da = (int *)malloc(c.alphabet_size*sizeof(int));
+        for (i = 0; i < c.alphabet_size; i++){
+            c.dl_da[i] = 0;
+        }
+    
+        /* Create array d */
+        c.dl_d = (int **)malloc((c.num_dimensions + 2)*sizeof(int *));
+        for (i = 0; i < c.num_dimensions + 2; i++){
+            c.dl_d[i] = (int *)malloc((c.num_dimensions + 2)*sizeof(int));
+        }   
+
+    } else {
+        fprintf(stderr,"distance function not recognized\n");
+        return 1;
+    }
+ 
     /* Run dbscan */ 
     status = local_dbscan(&c);
     if (status != 0){
         fprintf(stderr,"dbscan failed.\n");
         return 1;
+    }
+
+    /* Clean up damerau levenshtein */
+    if (dist_function == 1){
+
+        for (i = 0; i < c.num_dimensions; i++){
+            free(c.dl_d[i]);
+        }
+        free(c.dl_d);
+        free(c.dl_da);
     }
 
     return 0;

@@ -12,7 +12,8 @@ cdef extern from "dbscan.h":
                int num_dimensions,
                int alphabet_size,
                int epsilon_cutoff,
-               int min_neighbors)
+               int min_neighbors,
+               int dist_function)
 
 # define our simple wrap function
 def run_dbscan(np.ndarray[long, ndim=2, mode="c"] all_points not None, 
@@ -22,7 +23,8 @@ def run_dbscan(np.ndarray[long, ndim=2, mode="c"] all_points not None,
                 num_dimensions,
                 alphabet_size,
                 epsilon, 
-                min_neighbors):
+                min_neighbors,
+                dist_function):
 
     cdef:
         long **_all_points
@@ -44,7 +46,8 @@ def run_dbscan(np.ndarray[long, ndim=2, mode="c"] all_points not None,
                     <int> num_dimensions,
                     <int> alphabet_size,
                     <int> epsilon,
-                    <int> min_neighbors)
+                    <int> min_neighbors,
+                    <int> dist_function)
 
     free(_all_points)
     free(_dist_matrix)

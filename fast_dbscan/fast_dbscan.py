@@ -16,7 +16,7 @@ class DbscanWrapper:
     currently hamming distance.
     """
 
-    def __init__(self,alphabet="amino"):
+    def __init__(self,alphabet="amino",dist_function="simple"):
         """
         Initialize the class.  This should be called by every subclass to
         initialize the internal dictionaries mapping alphabets to fast internal
@@ -25,13 +25,22 @@ class DbscanWrapper:
 
         # initialize internal variables
         self.alphabet = alphabet
+        self.dist_function = dist_function
 
         # decide on the alphabet
         if self.alphabet == "amino": 
             self._alphabet_string = "*ABCDEFGHIKLMNPQRSTVWXYZ"
         else:
             raise ValueError("alphabet not recongized.")
-            
+           
+        if self.dist_function == "simple":
+            self._dist_function_internal = 0
+        elif self.dist_function == "dl":
+            self._dist_function_internal = 1
+        else:
+            err = "dist_function not recognized.  should be 'simple' or 'dl' (Damerau-Levenshtein)\n"
+            raise ValueError(err)
+ 
         self.alphabet_size = len(list(self._alphabet_string))
 
         enum_list = zip(self._alphabet_string,range(len(self._alphabet_string)))
@@ -82,7 +91,8 @@ class DbscanWrapper:
                                    self.num_dimensions,
                                    self.alphabet_size,
                                    epsilon,
-                                   min_neighbors)
+                                   min_neighbors,
+                                   self._dist_function_internal)
 
     @property
     def results(self):
@@ -110,7 +120,12 @@ def main(argv=None):
         err = "Incorrect arguments. Usage:\n\n{}\n\n".format(__usage__)
         raise ValueError(err)
 
-    d = DbscanWrapper()
+    try:
+        dist_function = argv[2]
+    except IndexError:
+        dist_function = "simple"
+
+    d = DbscanWrapper(dist_function=dist_function)
     d.read_file(file_name)
     d.run(epsilon)
 
