@@ -3,6 +3,8 @@ A lightweight, fast dbscan implementation for use on peptide strings.  It uses
 pure C for the distance calculations and clustering.  This code is then wrapped
 in python.
 
+*Note*: as implemented, the software assumes all sequences have the same length.
+
 ### Installation
 
 #### pip
