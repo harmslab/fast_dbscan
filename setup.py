@@ -9,7 +9,7 @@ from Cython.Distutils import build_ext
 setup(name="fast_dbscan",
       packages=find_packages(),
       cmdclass={'build_ext': build_ext},
-      version='0.0.1',
+      version='0.1.0',
       description="fast dbscan clustering on peptide strings",
       #long_description=open("README.md").read(),
       author='Michael J. Harms',
