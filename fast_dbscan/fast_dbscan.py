@@ -67,13 +67,27 @@ class DbscanWrapper:
         lines = f.readlines()
         f.close()
 
-        self.num_points = len(lines)
-        self.num_dimensions = len(lines[0].strip())
-        self.all_points = np.ascontiguousarray(np.zeros((self.num_points,self.num_dimensions),dtype=int))       
-        for i, l in enumerate(lines):
-            self.all_points[i,:] = np.array([self._alphabet_dict[s] for s in l.strip()])
+        sequences = [l.strip() for l in lines if l.strip() != ""]
 
-        self.sequences = [l.strip() for l in lines]
+        self.load_sequences(sequences)
+        
+
+    def load_sequences(self,list_of_sequences):
+        """
+        Load in a collection of sequences and convert to internal integer representation.
+        """ 
+
+        if len(set([len(s) for s in list_of_sequences])) != 1:
+            err = "All sequences must be the same length.\n"
+            raise ValueError(err)
+
+        self.num_points = len(list_of_sequences)
+        self.num_dimensions = len(list_of_sequences[0])
+        self.all_points = np.ascontiguousarray(np.zeros((self.num_points,self.num_dimensions),dtype=int))       
+        for i, seq in enumerate(list_of_sequences):
+            self.all_points[i,:] = np.array([self._alphabet_dict[s] for s in seq])
+
+        self.sequences = list_of_sequences[:]
         self.cluster_assignments = np.ascontiguousarray(np.ones(self.num_points,dtype=int)*-1)
 
     def run(self,epsilon,min_neighbors=None):
