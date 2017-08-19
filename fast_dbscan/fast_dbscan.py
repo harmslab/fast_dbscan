@@ -81,6 +81,9 @@ class DbscanWrapper:
             err = "All sequences must be the same length.\n"
             raise ValueError(err)
 
+        # Sort so results are identical each time
+        list_of_sequences.sort()
+
         self.num_points = len(list_of_sequences)
         self.num_dimensions = len(list_of_sequences[0])
         self.all_points = np.ascontiguousarray(np.zeros((self.num_points,self.num_dimensions),dtype=int))       
