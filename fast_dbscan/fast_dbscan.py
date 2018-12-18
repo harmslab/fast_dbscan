@@ -8,7 +8,7 @@ __date__ = "2017-06-29"
 
 import dbscan
 import numpy as np
-import sys
+import sys, argparse, string
 
 class DbscanWrapper:
     """
@@ -16,7 +16,7 @@ class DbscanWrapper:
     currently hamming distance.
     """
 
-    def __init__(self,alphabet="amino",dist_function="simple"):
+    def __init__(self,alphabet="amino",dist_function="hamming"):
         """
         Initialize the class.  This should be called by every subclass to
         initialize the internal dictionaries mapping alphabets to fast internal
@@ -30,15 +30,21 @@ class DbscanWrapper:
         # decide on the alphabet
         if self.alphabet == "amino": 
             self._alphabet_string = "*ABCDEFGHIKLMNPQRSTVWXYZ"
+        elif self.alphabet == "nucleotide":
+            self._alphabet_string = "*ATCGU"
+        elif self.alphabet == "latin":
+            self._alphabet_string = string.ascii_letters
         else:
             raise ValueError("alphabet not recongized.")
            
-        if self.dist_function == "simple":
+        if self.dist_function == "hamming":
             self._dist_function_internal = 0
         elif self.dist_function == "dl":
             self._dist_function_internal = 1
+        elif self.dist_function == "custom":
+            self._dist_function_internal = 2
         else:
-            err = "dist_function not recognized.  should be 'simple' or 'dl' (Damerau-Levenshtein)\n"
+            err = "dist_function not recognized.\n"
             raise ValueError(err)
  
         self.alphabet_size = len(list(self._alphabet_string))
@@ -125,23 +131,59 @@ class DbscanWrapper:
 def main(argv=None):
     
     if argv is None:
-        argv = sys.argv[1:]
+        argv = sys.argv[:]
 
-    try:
-        file_name = argv[0]
-        epsilon = int(argv[1])
-    except (IndexError,ValueError):
-        err = "Incorrect arguments. Usage:\n\n{}\n\n".format(__usage__)
+    parser = argparse.ArgumentParser(description="perform dbscan clustering on a set of sequences")
+
+    parser.add_argument("seq_file",nargs=2,help="file with sequence strings (one per line)")
+
+    parser.add_argument("--epsilon",
+                        help="neighborhood cutoff. Only sequences that differ by <= epsilon are put in a cluster",
+                        type=int,
+                        default=1)
+
+    parser.add_argument("--minsize",
+                        help="minimum cluster size. Clusters smaller than this are not kept. If -1, use seq_length + 1",
+                        type=int,
+                        default=-1)
+                       
+    parser.add_argument("--dist",
+                        help="distance function. hamming (default) or dl (Damerau-Levenshtein).  dl distance is *much* slower than hamming.",
+                        type=str,
+                        choices=['hamming','dl'],
+                        default="hamming")
+
+    parser.add_argument("--alphabet",
+                        help="alphabet for sequence.  amino (protein seq), nucleotide (nucleotide seq), latin (upper and lowercase latin)",
+                        type=str,
+                        choices=['amino','nucleotide','latin'],
+                        default="amino")
+ 
+    args = parser.parse_args(argv)
+
+    seq_file = args.seq_file[1]
+    print(seq_file)
+    epsilon = args.epsilon
+    if epsilon < 1:
+        err = "epsilon must be greater than zero.\n"
         raise ValueError(err)
 
-    try:
-        dist_function = argv[2]
-    except IndexError:
-        dist_function = "simple"
+    min_size = args.minsize
+    if min_size == -1:
+        min_size = None
+    elif min_size < 2:
+        err = "minsize must be > 2 OR -1.  If -1, minimum cluster size will be seq_length + 1\n"
+        raise ValueError(err)
+    else:
+        pass
+    
+    dist = args.dist 
+   
+    alphabet = args.alphabet 
 
-    d = DbscanWrapper(dist_function=dist_function)
-    d.read_file(file_name)
-    d.run(epsilon)
+    d = DbscanWrapper(alphabet=alphabet,dist_function=dist)
+    d.read_file(seq_file)
+    d.run(epsilon=epsilon,min_neighbors=min_size)
 
     clusters = d.results
     cluster_ids = list(clusters.keys())

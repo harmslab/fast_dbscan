@@ -26,19 +26,21 @@ This will install a convenience program called `fast_dbscan` in the path.  This
 can be invoked on the command line:
 
 ```
-fast_dbscan filename epsilon [dl]
+fast_dbscan filename
 ```
 
-where `filename` is a file that contains sequences of identical length, with one
-per line, `epsilon` is the neighborhood distance cutoff (see below), and the 
-optional argument `dl` says to use the Damerau-Levenshtein distance function 
-rather than the simple distance function.
+where `filename` is a file that contains sequences of identical length.  For 
+full options, invoke:
+
+```
+fast_dbscan --help
+```
 
 #### As library
 ```
 import fast_dbscan
 
-d = fast_dbscan.DBScanWrapper(distance_function='dl')
+d = fast_dbscan.DBScanWrapper(alphabet='amino',distance_function='dl')
 d.read_file(file_with_sequences)
 d.run(epsilon=1,min_neighbors=12)
 

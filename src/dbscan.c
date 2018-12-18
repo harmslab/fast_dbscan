@@ -62,10 +62,31 @@ void loadData(char file_name[],config *c) {
     fclose(fp);
 } */
 
+int hamming_distance(long *v1, long *v2, void *tmp_c){
 
-int simple_distance(long *v1, long *v2, void *tmp_c){
+    /* Determine whether the hamming distance between two vectors is less 
+     * than the epsilon_cutoff */
 
-    /* Calculate the distance between two vectors given a distance matrix. */
+    int i, d;
+    config *c;
+    c = (config *)(tmp_c);
+
+    d = 0;
+    for (i = 0; i < c->num_dimensions; i++){
+        if (v1[i] != v2[i]) {
+            d += 1; if (d > c->epsilon_cutoff){ return 0; }
+        }
+    }
+
+    // get here if distance < epsilon_cutoff
+    return 1;
+}
+
+
+int custom_distance(long *v1, long *v2, void *tmp_c){
+
+    /* Determine whether the custom distance between two vectors is less 
+     * than the epsilon_cutoff */
 
     int i;
     int d;
@@ -75,12 +96,19 @@ int simple_distance(long *v1, long *v2, void *tmp_c){
     d = 0;
     for (i = 0; i < c->num_dimensions; i++){
         d += c->dist_matrix[v1[i]][v2[i]];
+        if (d > c->epsilon_cutoff) {
+            return 0;
+        }
     }
 
-    return d;
+    // If we get here, the distance is less than the neighborhood cutoff
+    return 1;
 }
 
 int dl_distance(long *v1, long *v2, void *c_tmp){
+
+    /* Determine whether two vectors differ by less than the epsilon_cutoff 
+     * using the Damerau-Levenshtein distnace.  */
 
     int i, j, k, max_dist;
     int db, len, minimum, insertion, deletion, transpose, cost; 
@@ -137,8 +165,8 @@ int dl_distance(long *v1, long *v2, void *c_tmp){
         c->dl_da[v1[i-1]] = i;
     }
 
-    /* Return final distance */
-    return c->dl_d[c->num_dimensions+1][c->num_dimensions+1];
+    /* Return whether the distance is less than the cutoff */
+    return c->dl_d[c->num_dimensions+1][c->num_dimensions+1] <= c->epsilon_cutoff;
 
 }
 
@@ -153,7 +181,7 @@ int query_region(int point, int *tmp_neighbors, config *c) {
     for (i = 0; i < c->num_points; i++) {
 
         if (i != point) {
-            if (c->dist_function(c->all_points[point],c->all_points[i],(void *)c) <= c->epsilon_cutoff) {
+            if (c->dist_function(c->all_points[point],c->all_points[i],(void *)c)) {
                 tmp_neighbors[neighbor_counter] = i;
                 neighbor_counter++;
             }
@@ -285,9 +313,12 @@ int dbscan(long **all_points,
     for (i = 0; i < c.num_points; i++){
         c.cluster_assignments[i] = -1;
     } 
-   
+
+    // hamming   
     if (dist_function == 0){
-        c.dist_function = &simple_distance;
+        c.dist_function = &hamming_distance;
+
+    // damerau-levenshtein
     } else if (dist_function == 1){
         c.dist_function = &dl_distance;
     
@@ -302,6 +333,10 @@ int dbscan(long **all_points,
         for (i = 0; i < c.num_dimensions + 2; i++){
             c.dl_d[i] = (int *)malloc((c.num_dimensions + 2)*sizeof(int));
         }   
+
+    // custom matrix
+    } else if (dist_function == 2) {
+        c.dist_function = &custom_distance;
 
     } else {
         fprintf(stderr,"distance function not recognized\n");
